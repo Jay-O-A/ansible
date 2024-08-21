@@ -1,0 +1,71 @@
+---
+- name: Deploy LAMP on Ubuntu hosts
+  hosts: ubuntu
+  become: yes
+  become_method: sudo
+ 
+  vars_files:
+    - vars/linuxsecrets.yml
+      
+  vars:
+   users: "{{ users }}"
+
+  pre_tasks:
+    # - name: Update apt repository cache, if necessary
+    # apt: 
+    #  update_cache: yes
+    #  cache_valid_time: 3600
+
+  handlers:
+    # - name: restart apache
+    #  service:
+    #  name: apache2
+    #  state: restarted
+  
+  tasks:
+   - name: Install LAMP packages
+     apt:
+      state: present
+      name:
+       - apache2
+       - mariadb-server
+       - mariadb-client
+       - php
+
+   - name: Disable the firewall      
+     service:
+      name: ufw
+      state: stopped
+
+   - name: Start Apache and MariaDB
+     service:
+      name: "{{ item }}"
+      state: started
+      enabled: yes
+     loop:
+      - apache2
+      - mariadb
+
+   - name: Ensure users exist
+     user:
+      name: "{{ item }}"
+      state: present
+     loop: "{{ users }}"   
+
+   - name: Create a public_html directory for multiple users
+     file:
+      path: "/home/{{ item }}/public_html"
+      state: directory
+      mode: '0755'
+      owner: "{{ item }}"
+      group: "{{ item }}"
+     loop: "{{ users }}"
+
+   - name: Upload sample index.html for multiple users
+     copy:
+      content: "<html><body><h1>Welcome to My Website</h1></body></html>"
+      dest: "/home/{{ item }}/public_html/index.html"
+      mode: '0644'
+      owner: "{{ item }}"
+      group: "{{ item }}"
+     loop: "{{ users }}"

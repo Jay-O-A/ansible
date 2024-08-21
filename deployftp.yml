@@ -1,0 +1,59 @@
+---
+- name: Deploy FTP Server on Ubuntu
+  hosts: ubuntu
+  become: yes
+  become_method: sudo
+
+  vars_files:
+    - vars/linuxsecrets.yml
+
+  tasks:
+    - name: Install vsftpd
+      apt:
+        name: vsftpd
+        state: present
+        update_cache: yes
+
+    - name: Backup original vsftpd.conf
+      copy:
+        src: /etc/vsftpd.conf
+        dest: /etc/vsftpd.conf.bak
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configure vsftpd for anonymous FTP and user uploads
+      lineinfile:
+        path: /etc/vsftpd.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^#?anonymous_enable=', line: 'anonymous_enable=YES' }
+        - { regexp: '^#?local_enable=', line: 'local_enable=YES' }
+        - { regexp: '^#?write_enable=', line: 'write_enable=YES' }
+        - { regexp: '^#?anon_upload_enable=', line: 'anon_upload_enable=YES' }
+        - { regexp: '^#?anon_mkdir_write_enable=', line: 'anon_mkdir_write_enable=YES' }
+        - { regexp: '^#?anon_other_write_enable=', line: 'anon_other_write_enable=YES' }
+
+    - name: Restart vsftpd to apply changes
+      service:
+        name: vsftpd
+        state: restarted
+
+    - name: Create /srv/ftp directory if it doesn't exist
+      file:
+        path: /srv/ftp
+        state: directory
+        owner: ftp
+        group: ftp
+        mode: '0755'
+
+    - name: Create README.txt in /srv/ftp
+      copy:
+        content: "Welcome to the FTP server! This file is read-only."
+        dest: /srv/ftp/README.txt
+        owner: ftp
+        group: ftp
+        mode: '0644'
+
